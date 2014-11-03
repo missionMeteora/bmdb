@@ -14,6 +14,7 @@ var (
 )
 
 type Tx struct {
+	db        *DB
 	txn       *mdb.Txn
 	listeners []func()
 	managed   bool

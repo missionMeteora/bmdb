@@ -13,12 +13,14 @@ func (b *Bucket) Cursor() (*Cursor, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Cursor{c}, nil
+	cur := &Cursor{c}
+	closeOnCrash(cur)
+	return cur, nil
 }
 
 func (c *Cursor) Close() error {
-	c.cur.Close()
-	return nil
+	go removeCloser(c)
+	return c.cur.Close()
 }
 
 func (c *Cursor) First() (key, val []byte) {

@@ -48,10 +48,12 @@ func Open(path string, mode uint, opts *Options) (db *DB, err error) {
 		env:  env,
 		opts: opts,
 	}
+	closeOnCrash(db)
 	return
 }
 
 func (db *DB) Close() error {
+	go removeCloser(db)
 	return db.env.Close()
 }
 

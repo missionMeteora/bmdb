@@ -9,7 +9,9 @@ func (t *Tx) CreateBucket(name string) (*Bucket, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Bucket{dbi, t}, nil
+	b := &Bucket{dbi, t}
+	//closeOnCrash(b.Close)
+	return b, nil
 }
 
 func (t *Tx) Bucket(name string) *Bucket {
@@ -17,7 +19,9 @@ func (t *Tx) Bucket(name string) *Bucket {
 	if err != nil {
 		return nil
 	}
-	return &Bucket{dbi, t}
+	b := &Bucket{dbi, t}
+	//closeOnCrash(b.Close)
+	return b
 }
 
 type Bucket struct {
@@ -43,6 +47,14 @@ func (b *Bucket) Delete(key []byte) error {
 	return b.tx.txn.Del(b.dbi, key, nil)
 }
 
+/*
+this is not needed
+func (b *Bucket) Close() error {
+	go removeCloser(b.Close)
+	b.tx.db.env.DBIClose(b.dbi)
+	return nil
+}
+*/
 // Drop deletes this bucket, if fromEnv is true it will also delete it from the environment and close the db handle.
 func (b *Bucket) Drop(fromEnv bool) error {
 	// 0 to empty the DB, 1 to delete it from the environment and close the DB handle.
@@ -62,6 +74,7 @@ func (b *Bucket) ForEach(fn func(k, v []byte) error) error {
 	if err != nil {
 		return err
 	}
+	defer cur.Close()
 	for {
 		k, v := cur.Next()
 		if k == nil {

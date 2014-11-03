@@ -84,6 +84,7 @@ func TestReverseCursor(t *testing.T) {
 		if logIf(err, t.Fatalf, "b.Cursor error = %v") {
 			return err
 		}
+		defer cur.Close()
 		for k, v := cur.Last(); k != nil; k, v = cur.Prev() {
 			t.Logf("%s = %s", k, v)
 		}
@@ -98,6 +99,7 @@ func TestZCleanup(t *testing.T) {
 		os.RemoveAll(path)
 	}
 }
+
 func logIf(err error, lf func(string, ...interface{}), fmt string, args ...interface{}) bool {
 	if err != nil {
 		lf(fmt, append(args, err))
