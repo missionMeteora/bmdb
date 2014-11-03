@@ -41,6 +41,7 @@ func (tx *Tx) Rollback() error {
 	if tx.managed {
 		return ErrManaged
 	}
+	go removeCloser(tx)
 	tx.txn.Abort()
 	return nil
 }
@@ -49,10 +50,16 @@ func (tx *Tx) Commit() (err error) {
 	if tx.managed {
 		return ErrManaged
 	}
+	go removeCloser(tx)
 	if err = tx.txn.Commit(); err == nil {
 		for _, fn := range tx.listeners {
 			fn()
 		}
 	}
 	return
+}
+
+// Close is an alias for Rollback, used internally for the crash handler
+func (tx *Tx) Close() error {
+	return tx.Rollback()
 }

@@ -66,7 +66,9 @@ func (db *DB) Begin(writable bool) (*Tx, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Tx{txn: txn, rw: writable}, nil
+	tx := &Tx{txn: txn, rw: writable}
+	closeOnCrash(tx)
+	return tx, nil
 }
 
 func (db *DB) Update(fn func(*Tx) error) (err error) {
