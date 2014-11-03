@@ -20,3 +20,21 @@ func (c *Cursor) Close() error {
 	c.cur.Close()
 	return nil
 }
+
+func (c *Cursor) First() (key, val []byte) {
+	key, val, _ = c.cur.Get(nil, nil, mdb.FIRST)
+	return
+}
+func (c *Cursor) Last() (key, val []byte) {
+	key, val, _ = c.cur.Get(nil, nil, mdb.LAST)
+	return
+}
+
+func (c *Cursor) Next() (key, val []byte) {
+	key, val, _ = c.cur.Get(nil, nil, mdb.NEXT)
+	return
+}
+func (c *Cursor) Prev() (key, val []byte) {
+	key, val, _ = c.cur.Get(nil, nil, mdb.PREV)
+	return
+}

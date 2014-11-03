@@ -56,3 +56,20 @@ func (b *Bucket) Drop(fromEnv bool) error {
 func (b *Bucket) Stats() (*mdb.Stat, error) {
 	return b.tx.txn.Stat(b.dbi)
 }
+
+func (b *Bucket) ForEach(fn func(k, v []byte) error) error {
+	cur, err := b.Cursor()
+	if err != nil {
+		return err
+	}
+	for {
+		k, v := cur.Next()
+		if k == nil {
+			break
+		}
+		if err = fn(k, v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
