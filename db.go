@@ -65,7 +65,11 @@ func (db *DB) Close() error {
 }
 
 func (db *DB) Begin(writable bool) (*Tx, error) {
-	txn, err := db.env.BeginTxn(nil, 0)
+	var flags uint = mdb.RDONLY
+	if writable {
+		flags = 0
+	}
+	txn, err := db.env.BeginTxn(nil, flags)
 	if err != nil {
 		return nil, err
 	}
@@ -80,6 +84,7 @@ func (db *DB) Update(fn func(*Tx) error) (err error) {
 		return err
 	}
 	defer func() {
+		tx.managed = false
 		if perr, _ := recover().(error); err != nil {
 			err = perr
 			tx.Rollback()
@@ -98,12 +103,12 @@ func (db *DB) Update(fn func(*Tx) error) (err error) {
 
 func (db *DB) View(fn func(*Tx) error) (err error) {
 	tx, err := db.Begin(false)
+	defer tx.txn.Abort()
 	if err != nil {
 		return err
 	}
 	tx.managed = true
 	err = fn(tx)
 	tx.managed = false
-	tx.Rollback()
 	return
 }
