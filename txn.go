@@ -26,7 +26,7 @@ func (tx *Tx) Put(key, val []byte) error {
 	if !tx.rw {
 		return ErrReadOnly
 	}
-	b, err := tx.CreateBucket(DefaultBucket)
+	b, err := tx.CreateBucket([]byte(DefaultBucket))
 	if err != nil {
 		return err
 	}

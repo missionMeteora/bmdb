@@ -1,11 +1,19 @@
 package bmdb
 
 import (
+	"errors"
+	"log"
+
 	"github.com/szferi/gomdb"
 )
 
-func (t *Tx) CreateBucket(name string) (*Bucket, error) {
-	dbi, err := t.txn.DBIOpen(&name, mdb.CREATE)
+var (
+	ErrBucketNotFound = errors.New("bucket not found")
+)
+
+func (t *Tx) CreateBucket(name []byte) (*Bucket, error) {
+	n := string(name)
+	dbi, err := t.txn.DBIOpen(&n, mdb.CREATE)
 	if err != nil {
 		return nil, err
 	}
@@ -14,13 +22,15 @@ func (t *Tx) CreateBucket(name string) (*Bucket, error) {
 	return b, nil
 }
 
-func (t *Tx) Bucket(name string) *Bucket {
-	dbi, err := t.txn.DBIOpen(&name, 0)
+func (tx *Tx) CreateBucketIfNotExists(name []byte) (*Bucket, error) {
+	return tx.CreateBucket(name)
+}
+
+func (tx *Tx) Bucket(name []byte) *Bucket {
+	b, err := tx.CreateBucket(name)
 	if err != nil {
-		return nil
+		log.Printf("bucket (%s) error = %v", name, err)
 	}
-	b := &Bucket{dbi, t}
-	//closeOnCrash(b.Close)
 	return b
 }
 
@@ -29,9 +39,9 @@ type Bucket struct {
 	tx  *Tx
 }
 
-func (b *Bucket) Get(key []byte) ([]byte, error) {
-	return b.tx.txn.Get(b.dbi, key)
-
+func (b *Bucket) Get(key []byte) (v []byte) {
+	v, _ = b.tx.txn.Get(b.dbi, key)
+	return
 }
 func (b *Bucket) Put(key, val []byte) error {
 	if !b.tx.rw {
@@ -45,6 +55,10 @@ func (b *Bucket) Delete(key []byte) error {
 		return ErrReadOnly
 	}
 	return b.tx.txn.Del(b.dbi, key, nil)
+}
+
+func (b *Bucket) Tx() *Tx {
+	return b.tx
 }
 
 /*

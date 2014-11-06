@@ -1,6 +1,8 @@
 package bmdb
 
 import (
+	"os"
+
 	"github.com/szferi/gomdb"
 )
 
@@ -18,12 +20,17 @@ type Options struct {
 
 var defaultOptions = &Options{
 	MapSize: 1 << 20,
-	MaxDBs:  1, //this is extremely important, apparently..
+	MaxDBs:  1 << 10, //this is extremely important, apparently..
 }
 
 func Open(path string, mode uint, opts *Options) (db *DB, err error) {
 	if opts == nil {
 		opts = defaultOptions
+	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if err = os.Mkdir(path, 0777); err != nil {
+			return nil, err
+		}
 	}
 	var env *mdb.Env
 	if env, err = mdb.NewEnv(); err != nil {
@@ -41,7 +48,7 @@ func Open(path string, mode uint, opts *Options) (db *DB, err error) {
 		return
 	}
 
-	if err = env.Open(path, opts.Flags, mode); err != nil {
+	if err = env.Open(path, opts.Flags, 0666); err != nil {
 		return
 	}
 	db = &DB{
@@ -58,11 +65,7 @@ func (db *DB) Close() error {
 }
 
 func (db *DB) Begin(writable bool) (*Tx, error) {
-	var flags uint = mdb.RDONLY
-	if writable {
-		flags = 0
-	}
-	txn, err := db.env.BeginTxn(nil, flags)
+	txn, err := db.env.BeginTxn(nil, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -79,8 +82,6 @@ func (db *DB) Update(fn func(*Tx) error) (err error) {
 	defer func() {
 		if perr, _ := recover().(error); err != nil {
 			err = perr
-		}
-		if err != nil {
 			tx.Rollback()
 		}
 	}()
@@ -89,6 +90,8 @@ func (db *DB) Update(fn func(*Tx) error) (err error) {
 	tx.managed = false
 	if err == nil {
 		err = tx.Commit()
+	} else {
+		tx.Rollback()
 	}
 	return
 }
@@ -101,5 +104,6 @@ func (db *DB) View(fn func(*Tx) error) (err error) {
 	tx.managed = true
 	err = fn(tx)
 	tx.managed = false
+	tx.Rollback()
 	return
 }
