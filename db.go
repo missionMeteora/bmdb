@@ -26,9 +26,16 @@ var defaultOptions = &Options{
 func Open(path string, mode uint, opts *Options) (db *DB, err error) {
 	if opts == nil {
 		opts = defaultOptions
+	} else {
+		if opts.MapSize == 0 {
+			opts.MapSize = defaultOptions.MapSize
+		}
+		if opts.MaxDBs == 0 {
+			opts.MaxDBs = defaultOptions.MaxDBs
+		}
 	}
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if err = os.Mkdir(path, 0777); err != nil {
+		if err = os.Mkdir(path, 0700); err != nil {
 			return nil, err
 		}
 	}
@@ -48,7 +55,7 @@ func Open(path string, mode uint, opts *Options) (db *DB, err error) {
 		return
 	}
 
-	if err = env.Open(path, opts.Flags, 0666); err != nil {
+	if err = env.Open(path, opts.Flags, mode); err != nil {
 		return
 	}
 	db = &DB{
