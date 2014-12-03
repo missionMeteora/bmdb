@@ -6,7 +6,7 @@ import (
 	"github.com/szferi/gomdb"
 )
 
-const DefaultBucket = "default"
+var DefaultBucket = []byte("default")
 
 var (
 	ErrManaged  = errors.New("cannot commit a managed transaction")
@@ -26,7 +26,7 @@ func (tx *Tx) Put(key, val []byte) error {
 	if !tx.rw {
 		return ErrReadOnly
 	}
-	b, err := tx.CreateBucket([]byte(DefaultBucket))
+	b, err := tx.CreateBucket(DefaultBucket)
 	if err != nil {
 		return err
 	}
