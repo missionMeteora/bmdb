@@ -2,12 +2,12 @@ package bmdb
 
 import (
 	"errors"
-	"log"
 
 	"github.com/szferi/gomdb"
 )
 
 var (
+	NotImplemented    = errors.New("not implemented")
 	ErrBucketNotFound = errors.New("bucket not found")
 )
 
@@ -17,21 +17,19 @@ func (t *Tx) CreateBucket(name []byte) (*Bucket, error) {
 	if err != nil {
 		return nil, err
 	}
-	b := &Bucket{dbi, t}
-	//closeOnCrash(b.Close)
-	return b, nil
+	return &Bucket{dbi, t}, nil
 }
 
 func (tx *Tx) CreateBucketIfNotExists(name []byte) (*Bucket, error) {
-	return tx.CreateBucket(name)
+	// FIXME
+	return nil, NotImplemented
+	// return tx.CreateBucket(name)
 }
 
 func (tx *Tx) Bucket(name []byte) *Bucket {
-	b, err := tx.CreateBucket(name)
-	if err != nil {
-		log.Printf("bucket (%s) error = %v", name, err)
-	}
-	return b
+	// FIXME
+	// b, _ := tx.CreateBucket(name)
+	return nil
 }
 
 type Bucket struct {
@@ -39,10 +37,14 @@ type Bucket struct {
 	tx  *Tx
 }
 
-func (b *Bucket) Get(key []byte) (v []byte) {
-	v, _ = b.tx.txn.Get(b.dbi, key)
-	return
+func (b *Bucket) Get(key []byte) []byte {
+	v, err := b.tx.txn.Get(b.dbi, key)
+	if err != nil {
+		return nil
+	}
+	return v
 }
+
 func (b *Bucket) Put(key, val []byte) error {
 	if !b.tx.rw {
 		return ErrReadOnly
@@ -61,22 +63,14 @@ func (b *Bucket) Tx() *Tx {
 	return b.tx
 }
 
-/*
-this is not needed
-func (b *Bucket) Close() error {
-	go removeCloser(b.Close)
-	b.tx.db.env.DBIClose(b.dbi)
-	return nil
-}
-*/
-// Drop deletes this bucket, if fromEnv is true it will also delete it from the environment and close the db handle.
+// Drop deletes the bucket, if fromEnv is true it will also delete it from the environment and close the handle.
 func (b *Bucket) Drop(fromEnv bool) error {
-	// 0 to empty the DB, 1 to delete it from the environment and close the DB handle.
-	del := 0
 	if fromEnv {
-		del = 1
+		// 1 to delete the DB from the environment and close the handle.
+		return b.tx.txn.Drop(b.dbi, 1)
 	}
-	return b.tx.txn.Drop(b.dbi, del)
+	// 0 to empty the DB.
+	return b.tx.txn.Drop(b.dbi, 0)
 }
 
 func (b *Bucket) Stats() (*mdb.Stat, error) {

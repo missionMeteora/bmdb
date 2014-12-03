@@ -19,7 +19,7 @@ var (
 func closeOnCrash(c io.Closer) {
 	l.Lock()
 	closers = append(closers, c)
-	l.Unlock() // no need for defer, it's slow and not needed
+	l.Unlock()
 }
 
 func removeCloser(c io.Closer) {
@@ -33,7 +33,7 @@ func removeCloser(c io.Closer) {
 			break
 		}
 	}
-	l.Unlock() // no need for defer, it's slow and not needed
+	l.Unlock()
 }
 
 func RunClosers() {
@@ -58,7 +58,7 @@ func RunClosers() {
 func OnExit(fn func()) {
 	l.Lock()
 	listeners = append(listeners, fn)
-	l.Unlock() // no need for defer, it's slow and not needed
+	l.Unlock()
 }
 
 func init() {

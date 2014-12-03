@@ -20,7 +20,7 @@ type Options struct {
 
 var defaultOptions = &Options{
 	MapSize: 1 << 20,
-	MaxDBs:  1 << 10, //this is extremely important, apparently..
+	MaxDBs:  1 << 10, // this is extremely important, apparently..
 }
 
 func Open(path string, mode uint, opts *Options) (db *DB, err error) {
