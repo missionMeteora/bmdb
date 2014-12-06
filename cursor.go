@@ -1,7 +1,7 @@
 package bmdb
 
 import (
-	"github.com/szferi/gomdb"
+	"github.com/missionMeteora/bmdb/mdb"
 )
 
 type Cursor mdb.Cursor

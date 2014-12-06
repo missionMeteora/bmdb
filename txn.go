@@ -3,7 +3,7 @@ package bmdb
 import (
 	"sync"
 
-	"github.com/szferi/gomdb"
+	"github.com/missionMeteora/bmdb/mdb"
 )
 
 // Tx represents a read-only or read/write transaction on the database.

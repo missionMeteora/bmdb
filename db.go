@@ -4,7 +4,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/szferi/gomdb"
+	"github.com/missionMeteora/bmdb/mdb"
 )
 
 type DB struct {

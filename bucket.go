@@ -1,6 +1,6 @@
 package bmdb
 
-import "github.com/szferi/gomdb"
+import "github.com/missionMeteora/bmdb/mdb"
 
 type Bucket struct {
 	dbi mdb.DBI

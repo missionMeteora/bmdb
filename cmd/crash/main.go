@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/missionMeteora/bolty-mdb"
+	"github.com/missionMeteora/bmdb"
 )
 
 func main() {
