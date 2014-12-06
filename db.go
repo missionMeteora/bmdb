@@ -8,9 +8,10 @@ import (
 )
 
 type DB struct {
-	path string
-	env  *mdb.Env
-	opts *Options
+	path   string
+	env    *mdb.Env
+	opts   *Options
+	closed bool
 
 	// A protected registry of transactions.
 	mux          sync.Mutex
@@ -98,9 +99,19 @@ func (db *DB) Path() string {
 // Close releases all database resources. All transactions will be aborted.
 func (db *DB) Close() error {
 	defer unregisterDB(db)
+	return db.close()
+}
+
+func (db *DB) close() error {
+	if db.closed {
+		return ErrDatabaseNotOpen
+	}
+	db.mux.Lock()
+	defer db.mux.Unlock()
 	for tx := range db.transactions {
 		tx.close()
 	}
+	db.closed = true
 	return db.env.Close()
 }
 
@@ -108,6 +119,9 @@ func (db *DB) Close() error {
 //
 // IMPORTANT: You must close read-only transactions after you are finished.
 func (db *DB) Begin(writable bool) (*Tx, error) {
+	if db.closed {
+		return nil, ErrDatabaseNotOpen
+	}
 	var flags uint
 	if !writable {
 		flags = mdb.RDONLY
@@ -126,6 +140,9 @@ func (db *DB) Begin(writable bool) (*Tx, error) {
 // If an error is returned then the entire transaction is rolled back.
 // Any error that is returned from the function or returned from the commit is returned from the Update() method.
 func (db *DB) Update(fn func(*Tx) error) error {
+	if db.closed {
+		return ErrDatabaseNotOpen
+	}
 	tx, err := db.Begin(true)
 	if err != nil {
 		return err
@@ -145,6 +162,9 @@ func (db *DB) Update(fn func(*Tx) error) error {
 // View executes a function within the context of a managed read-only transaction.
 // Any error that is returned from the function is returned from the View() method.
 func (db *DB) View(fn func(*Tx) error) error {
+	if db.closed {
+		return ErrDatabaseNotOpen
+	}
 	tx, err := db.Begin(false)
 	if err != nil {
 		return err

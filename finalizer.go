@@ -5,7 +5,7 @@ import "sync"
 var (
 	// A global protected registry for
 	// all the active databases.
-	mux       sync.RWMutex
+	mux       sync.Mutex
 	activeDBs map[*DB]struct{}
 )
 
@@ -28,9 +28,10 @@ func unregisterDB(db *DB) {
 // Finalize gracefully aborts all the active transactions and closes all the active databases.
 // It must be called before the application exits, despite the cause of its exit.
 func Finalize() {
-	mux.RLock()
-	defer mux.RUnlock()
+	mux.Lock()
+	defer mux.Unlock()
 	for db := range activeDBs {
-		db.Close()
+		db.close()
 	}
+	activeDBs = nil
 }
