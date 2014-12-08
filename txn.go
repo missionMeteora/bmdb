@@ -16,6 +16,9 @@ type Tx struct {
 	writable bool
 	done     bool
 
+	// closeCallback is used to notify the parent DB about a closed transaction
+	closeCallback func()
+
 	// A protected registry.
 	mux            sync.RWMutex
 	commitHandlers []func()
@@ -71,6 +74,8 @@ func (tx *Tx) CreateBucket(name []byte) (*Bucket, error) {
 func (tx *Tx) CreateBucketIfNotExists(name []byte) (*Bucket, error) {
 	if tx.done {
 		return nil, ErrTxDone
+	} else if !tx.Writable() {
+		return nil, ErrTxNotWritable
 	} else if len(name) == 0 {
 		return nil, ErrNoBucketName
 	} else if len(name) > MaxNameLength {
@@ -141,6 +146,9 @@ func (tx *Tx) Rollback() error {
 	}
 	tx.cursors = nil
 	tx.commitHandlers = nil
+	if tx.closeCallback != nil {
+		tx.closeCallback()
+	}
 	return nil
 }
 
@@ -168,6 +176,9 @@ func (tx *Tx) Commit() error {
 	}
 	tx.cursors = nil
 	tx.commitHandlers = nil
+	if tx.closeCallback != nil {
+		tx.closeCallback()
+	}
 	return nil
 }
 
@@ -189,10 +200,18 @@ func (tx *Tx) close() {
 			c.Close()
 		}
 	}
+	tx.cursors = nil
+	if tx.closeCallback != nil {
+		tx.closeCallback()
+	}
 }
 
 func (tx *Tx) registerCursor(c *Cursor) {
 	mux.Lock()
 	tx.cursors[c] = struct{}{}
 	mux.Unlock()
+}
+
+func (tx *Tx) activeCursorsCount() int {
+	return len(tx.cursors)
 }

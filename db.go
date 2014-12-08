@@ -18,27 +18,16 @@ type DB struct {
 	transactions map[*Tx]struct{}
 }
 
-type EnvFlag uint
-
-const (
-	FIXEDMAP   EnvFlag = mdb.FIXEDMAP   // mmap at a fixed address (experimental)
-	NOSUBDIR   EnvFlag = mdb.NOSUBDIR   // no environment directory
-	NOSYNC     EnvFlag = mdb.NOSYNC     // don't fsync after commit
-	RDONLY     EnvFlag = mdb.RDONLY     // read only
-	NOMETASYNC EnvFlag = mdb.NOMETASYNC // don't fsync metapage after commit
-	WRITEMAP   EnvFlag = mdb.WRITEMAP   // use writable mmap
-	MAPASYNC   EnvFlag = mdb.MAPASYNC   // use asynchronous msync when MDB_WRITEMAP is use
-	NOTLS      EnvFlag = mdb.NOTLS      // tie reader locktable slots to Txn objects instead of threads
-)
-
 type Options struct {
 	Flags      EnvFlag
 	MapSize    uint64
 	MaxReaders uint
 	MaxBuckets uint
+	NoSync     bool
 }
 
 var defaultOptions = &Options{
+	Flags:      mdb.CREATE,
 	MapSize:    1 << 20,
 	MaxBuckets: 1 << 10, // this is extremely important, apparently..
 }
@@ -53,10 +42,15 @@ func checkOpts(opts *Options) *Options {
 	if opts.MaxBuckets == 0 {
 		opts.MaxBuckets = defaultOptions.MaxBuckets
 	}
+	if opts.NoSync {
+		opts.Flags |= mdb.NOSYNC | mdb.NOMETASYNC | mdb.WRITEMAP | mdb.MAPASYNC
+	}
 	return opts
 }
 
-// Open opens a database.
+// Open creates and opens a database at the given path.
+// If the directory does not exist then it will be created automatically.
+// Passing in nil options will cause BMDB to open the database with the default options.
 func Open(path string, mode os.FileMode, opts *Options) (*DB, error) {
 	opts = checkOpts(opts)
 	env, err := mdb.NewEnv()
@@ -78,14 +72,19 @@ func Open(path string, mode os.FileMode, opts *Options) (*DB, error) {
 		return nil, err
 	}
 
+	if err := os.MkdirAll(path, 0755); err != nil {
+		env.Close()
+		return nil, err
+	}
 	if err = env.Open(path, uint(opts.Flags), uint(mode)); err != nil {
 		env.Close()
 		return nil, err
 	}
 	db := &DB{
-		path: path,
-		env:  env,
-		opts: opts,
+		path:         path,
+		env:          env,
+		opts:         opts,
+		transactions: make(map[*Tx]struct{}, registryMapCap),
 	}
 	registerDB(db)
 	return db, nil
@@ -111,6 +110,7 @@ func (db *DB) close() error {
 	for tx := range db.transactions {
 		tx.close()
 	}
+	db.transactions = nil
 	db.closed = true
 	return db.env.Close()
 }
@@ -130,8 +130,15 @@ func (db *DB) Begin(writable bool) (*Tx, error) {
 	if err != nil {
 		return nil, err
 	}
-	tx := &Tx{txn: txn, writable: writable}
+	tx := &Tx{
+		txn:      txn,
+		writable: writable,
+		cursors:  make(map[*Cursor]struct{}, registryMapCap),
+	}
 	db.registerTransaction(tx)
+	tx.closeCallback = func() {
+		db.unregisterTransaction(tx)
+	}
 	return tx, nil
 }
 
@@ -191,4 +198,8 @@ func (db *DB) unregisterTransaction(tx *Tx) {
 	mux.Lock()
 	delete(db.transactions, tx)
 	mux.Unlock()
+}
+
+func (db *DB) activeTransactionsCount() int {
+	return len(db.transactions)
 }

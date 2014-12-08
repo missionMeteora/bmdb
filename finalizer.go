@@ -10,7 +10,7 @@ var (
 )
 
 func init() {
-	activeDBs = make(map[*DB]struct{}, 32)
+	activeDBs = make(map[*DB]struct{}, registryMapCap)
 }
 
 func registerDB(db *DB) {
@@ -34,4 +34,9 @@ func Finalize() {
 		db.close()
 	}
 	activeDBs = nil
+}
+
+// ActiveCount gets the count of currently opened DBs.
+func ActiveCount() int {
+	return len(activeDBs)
 }
