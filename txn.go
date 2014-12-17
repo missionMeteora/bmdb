@@ -25,29 +25,6 @@ type Tx struct {
 	cursors        map[*Cursor]struct{}
 }
 
-// Put sets the value for a key in the default bucket.
-// If the key exist then its previous value will be overwritten.
-// Returns an error if the bucket was created from a read-only transaction,
-// if the key is too large, or if the value is too large.
-func (tx *Tx) Put(key, value []byte) error {
-	if tx.done {
-		return ErrTxDone
-	} else if !tx.Writable() {
-		return ErrTxNotWritable
-	} else if len(key) == 0 {
-		return ErrKeyRequired
-	} else if len(key) > MaxKeySize {
-		return ErrKeyTooLarge
-	} else if len(value) > MaxValueSize {
-		return ErrValueTooLarge
-	}
-	b, err := tx.CreateBucket(DefaultBucketName)
-	if err != nil {
-		return err
-	}
-	return b.Put(key, value)
-}
-
 // CreateBucket creates a new bucket.
 // Returns an error if the bucket already exists, if the bucket name is blank, or if the bucket name is too long.
 func (tx *Tx) CreateBucket(name []byte) (*Bucket, error) {
@@ -137,6 +114,8 @@ func (tx *Tx) Rollback() error {
 	} else if tx.done {
 		return ErrTxDone
 	}
+	tx.mux.Lock()
+	defer tx.mux.Unlock()
 	tx.txn.Abort()
 	tx.done = true
 	if !tx.Writable() {
@@ -160,8 +139,10 @@ func (tx *Tx) Commit() error {
 	} else if tx.done {
 		return ErrTxDone
 	}
-	err := tx.txn.Commit()
+	tx.mux.Lock()
+	defer tx.mux.Unlock()
 	tx.done = true
+	err := tx.txn.Commit()
 	if err != nil {
 		tx.txn.Abort()
 	} else {

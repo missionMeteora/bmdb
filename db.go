@@ -28,8 +28,8 @@ type Options struct {
 
 var defaultOptions = &Options{
 	Flags:      mdb.CREATE,
-	MapSize:    1 << 20,
-	MaxBuckets: 1 << 10, // this is extremely important, apparently..
+	MapSize:    10 * 1024 * 1024, // 10 MB
+	MaxBuckets: 8096,             // TODO: study caveats
 }
 
 func checkOpts(opts *Options) *Options {
@@ -105,13 +105,15 @@ func (db *DB) close() error {
 	if db.closed {
 		return ErrDatabaseNotOpen
 	}
+	db.closed = true
+	mux.Lock()
+	defer mux.Unlock()
 	db.mux.Lock()
 	defer db.mux.Unlock()
 	for tx := range db.transactions {
 		tx.close()
 	}
 	db.transactions = nil
-	db.closed = true
 	return db.env.Close()
 }
 
@@ -137,6 +139,9 @@ func (db *DB) Begin(writable bool) (*Tx, error) {
 	}
 	db.registerTransaction(tx)
 	tx.closeCallback = func() {
+		if db.closed {
+			return
+		}
 		db.unregisterTransaction(tx)
 	}
 	return tx, nil
@@ -154,8 +159,8 @@ func (db *DB) Update(fn func(*Tx) error) error {
 	if err != nil {
 		return err
 	}
-	db.registerTransaction(tx)
-	defer db.unregisterTransaction(tx)
+	// db.registerTransaction(tx)
+	// defer db.unregisterTransaction(tx)
 	tx.managed = true
 	err = fn(tx)
 	tx.managed = false
@@ -176,8 +181,8 @@ func (db *DB) View(fn func(*Tx) error) error {
 	if err != nil {
 		return err
 	}
-	db.registerTransaction(tx)
-	defer db.unregisterTransaction(tx)
+	// db.registerTransaction(tx)
+	// defer db.unregisterTransaction(tx)
 	tx.managed = true
 	err = fn(tx)
 	tx.managed = false
@@ -189,12 +194,18 @@ func (db *DB) View(fn func(*Tx) error) error {
 }
 
 func (db *DB) registerTransaction(tx *Tx) {
+	if db.closed {
+		return
+	}
 	mux.Lock()
 	db.transactions[tx] = struct{}{}
 	mux.Unlock()
 }
 
 func (db *DB) unregisterTransaction(tx *Tx) {
+	if db.closed {
+		return
+	}
 	mux.Lock()
 	delete(db.transactions, tx)
 	mux.Unlock()

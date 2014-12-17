@@ -29,8 +29,8 @@ func (b *Bucket) Cursor() (*Cursor, error) {
 	return (*Cursor)(c), nil
 }
 
-// Get retrieves the value for a key in the bucket. Returns a nil value if the key does not exist or
-// the transaction is done.
+// Get retrieves the value for a key in the bucket.
+// Returns a nil value if the key does not exist or the transaction is done.
 func (b *Bucket) Get(key []byte) []byte {
 	if b.tx.done {
 		return nil
