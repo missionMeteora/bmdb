@@ -27,7 +27,6 @@ type Options struct {
 }
 
 var defaultOptions = &Options{
-	Flags:      mdb.CREATE,
 	MapSize:    10 * 1024 * 1024, // 10 MB
 	MaxBuckets: 8096,             // TODO: study caveats
 }

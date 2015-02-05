@@ -35,3 +35,14 @@ func (tx *Tx) Get(key []byte) []byte {
 	}
 	return b.Get(key)
 }
+
+func (b *Bucket) Exists(key []byte) bool {
+	if b.tx.done {
+		return false
+	}
+	_, err := b.tx.txn.Get(b.dbi, key)
+	if err != nil {
+		return false
+	}
+	return true
+}
