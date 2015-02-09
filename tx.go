@@ -200,11 +200,14 @@ func (tx *Tx) close() {
 }
 
 func (tx *Tx) registerCursor(c *Cursor) {
-	mux.Lock()
+	tx.mux.Lock()
 	tx.cursors[c] = struct{}{}
-	mux.Unlock()
+	tx.mux.Unlock()
 }
 
 func (tx *Tx) activeCursorsCount() int {
-	return len(tx.cursors)
+	tx.mux.RLock()
+	n := len(tx.cursors)
+	tx.mux.RUnlock()
+	return n
 }

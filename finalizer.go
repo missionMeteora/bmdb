@@ -5,7 +5,7 @@ import "sync"
 var (
 	// A global protected registry for
 	// all the active databases.
-	mux       sync.Mutex
+	mux       sync.RWMutex
 	activeDBs map[*DB]struct{}
 )
 
@@ -38,5 +38,8 @@ func Finalize() {
 
 // ActiveCount gets the count of currently opened DBs.
 func ActiveCount() int {
-	return len(activeDBs)
+	mux.RLock()
+	n := len(activeDBs)
+	mux.RUnlock()
+	return n
 }

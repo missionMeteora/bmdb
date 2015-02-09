@@ -14,7 +14,7 @@ type DB struct {
 	closed bool
 
 	// A protected registry of transactions.
-	mux          sync.Mutex
+	mux          sync.RWMutex
 	transactions map[*Tx]struct{}
 }
 
@@ -105,8 +105,6 @@ func (db *DB) close() error {
 		return ErrDatabaseNotOpen
 	}
 	db.closed = true
-	mux.Lock()
-	defer mux.Unlock()
 	db.mux.Lock()
 	defer db.mux.Unlock()
 	for tx := range db.transactions {
@@ -196,20 +194,23 @@ func (db *DB) registerTransaction(tx *Tx) {
 	if db.closed {
 		return
 	}
-	mux.Lock()
+	db.mux.Lock()
 	db.transactions[tx] = struct{}{}
-	mux.Unlock()
+	db.mux.Unlock()
 }
 
 func (db *DB) unregisterTransaction(tx *Tx) {
 	if db.closed {
 		return
 	}
-	mux.Lock()
+	db.mux.Lock()
 	delete(db.transactions, tx)
-	mux.Unlock()
+	db.mux.Unlock()
 }
 
 func (db *DB) activeTransactionsCount() int {
-	return len(db.transactions)
+	db.mux.RLock()
+	n := len(db.transactions)
+	db.mux.RUnlock()
+	return n
 }
