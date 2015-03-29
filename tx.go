@@ -1,6 +1,7 @@
 package bmdb
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/missionMeteora/bmdb/mdb"
@@ -121,14 +122,14 @@ func (tx *Tx) OnCommit(fn func()) {
 
 // Rollback closes the transaction and ignores all previous updates.
 func (tx *Tx) Rollback() error {
+	tx.mux.Lock()
+	defer tx.mux.Unlock()
 	if tx.managed {
 		return ErrTxManaged
 	} else if tx.done {
 		return ErrTxDone
 	}
 	tx.done = true
-	tx.mux.Lock()
-	defer tx.mux.Unlock()
 	tx.txn.Abort()
 	if !tx.Writable() {
 		for c := range tx.cursors {
@@ -146,17 +147,17 @@ func (tx *Tx) Rollback() error {
 // Commit commits all the operations of a transaction into the database and writes to the disk.
 // The transaction handle is freed. It and its cursors must not be used again after this call.
 func (tx *Tx) Commit() error {
+	tx.mux.Lock()
+	defer tx.mux.Unlock()
 	if tx.managed {
 		return ErrTxManaged
 	} else if tx.done {
 		return ErrTxDone
 	}
-	tx.mux.Lock()
-	defer tx.mux.Unlock()
 	tx.done = true
 	err := tx.txn.Commit()
 	if err != nil {
-		tx.txn.Abort()
+		fmt.Println("BMDB: error committing:", err)
 	} else {
 		for _, hdl := range tx.commitHandlers {
 			hdl()
@@ -172,7 +173,7 @@ func (tx *Tx) Commit() error {
 	if tx.closeCallback != nil {
 		tx.closeCallback()
 	}
-	return nil
+	return err
 }
 
 // Writable returns whether the transaction can perform write operations.
