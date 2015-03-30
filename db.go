@@ -28,7 +28,7 @@ type Options struct {
 
 var defaultOptions = &Options{
 	MapSize:    10 * 1024 * 1024, // 10 MB
-	MaxBuckets: 8096,             // TODO: study caveats
+	MaxBuckets: 32,               // TODO: study caveats
 }
 
 func checkOpts(opts *Options) *Options {
