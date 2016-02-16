@@ -50,3 +50,10 @@ func (val Val) BytesNoCopy() []byte {
 func (val Val) String() string {
 	return C.GoStringN((*C.char)(val.mv_data), C.int(val.mv_size))
 }
+
+func valBytes(p []byte) (unsafe.Pointer, C.size_t) {
+	if len(p) == 0 {
+		return nil, 0
+	}
+	return unsafe.Pointer(&p[0]), C.size_t(len(p))
+}

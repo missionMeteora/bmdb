@@ -8,6 +8,30 @@ package mdb
 #include <stdlib.h>
 #include <stdio.h>
 #include "lmdb.h"
+
+#define LMDBGO_SET_VAL(val, size, data) *(val) = (MDB_val){.mv_size = (size), .mv_data = (data)}
+
+static int lmdbgo_mdb_del(MDB_txn *txn, MDB_dbi dbi, void *kdata, size_t kn, void *vdata, size_t vn) {
+    MDB_val key, val;
+    LMDBGO_SET_VAL(&key, kn, kdata);
+    LMDBGO_SET_VAL(&val, vn, vdata);
+    return mdb_del(txn, dbi, &key, &val);
+}
+
+static int lmdbgo_mdb_get(MDB_txn *txn, MDB_dbi dbi, void *kdata, size_t kn, MDB_val *val) {
+    MDB_val key;
+    LMDBGO_SET_VAL(&key, kn, kdata);
+    return mdb_get(txn, dbi, &key, val);
+}
+
+static int lmdbgo_mdb_put2(MDB_txn *txn, MDB_dbi dbi, void *kdata, size_t kn, void *vdata, size_t vn, unsigned int flags) {
+    MDB_val key, val;
+    LMDBGO_SET_VAL(&key, kn, kdata);
+    LMDBGO_SET_VAL(&val, vn, vdata);
+    return mdb_put(txn, dbi, &key, &val, flags);
+}
+
+
 */
 import "C"
 
@@ -129,28 +153,37 @@ func (txn *Txn) Get(dbi DBI, key []byte) ([]byte, error) {
 	return val.Bytes(), nil
 }
 
-func (txn *Txn) GetVal(dbi DBI, key []byte) (Val, error) {
-	ckey := Wrap(key)
-	var cval Val
-	ret := C.mdb_get(txn._txn, C.MDB_dbi(dbi), (*C.MDB_val)(&ckey), (*C.MDB_val)(&cval))
-	return cval, errno(ret)
+func (txn *Txn) GetVal(dbi DBI, key []byte) (*Val, error) {
+	kdata, kn := valBytes(key)
+	val := new(C.MDB_val)
+	ret := C.lmdbgo_mdb_get(
+		txn._txn, C.MDB_dbi(dbi),
+		kdata, C.size_t(kn),
+		(*C.MDB_val)(val),
+	)
+	return (*Val)(val), errno(ret)
 }
 
 func (txn *Txn) Put(dbi DBI, key []byte, val []byte, flags uint) error {
-	ckey := Wrap(key)
-	cval := Wrap(val)
-	ret := C.mdb_put(txn._txn, C.MDB_dbi(dbi), (*C.MDB_val)(&ckey), (*C.MDB_val)(&cval), C.uint(flags))
+	kp, kl := valBytes(key)
+	vp, vl := valBytes(val)
+	ret := C.lmdbgo_mdb_put2(
+		txn._txn, C.MDB_dbi(dbi),
+		kp, kl,
+		vp, vl,
+		C.uint(flags),
+	)
 	return errno(ret)
 }
 
 func (txn *Txn) Del(dbi DBI, key, val []byte) error {
-	ckey := Wrap(key)
-	if val == nil {
-		ret := C.mdb_del(txn._txn, C.MDB_dbi(dbi), (*C.MDB_val)(&ckey), nil)
-		return errno(ret)
-	}
-	cval := Wrap(val)
-	ret := C.mdb_del(txn._txn, C.MDB_dbi(dbi), (*C.MDB_val)(&ckey), (*C.MDB_val)(&cval))
+	kdata, kn := valBytes(key)
+	vdata, vn := valBytes(val)
+	ret := C.lmdbgo_mdb_del(
+		txn._txn, C.MDB_dbi(dbi),
+		kdata, C.size_t(kn),
+		vdata, C.size_t(vn),
+	)
 	return errno(ret)
 }
 

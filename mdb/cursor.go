@@ -8,6 +8,22 @@ package mdb
 #include <stdlib.h>
 #include <stdio.h>
 #include "lmdb.h"
+
+#define LMDBGO_SET_VAL(val, size, data) *(val) = (MDB_val){.mv_size = (size), .mv_data = (data)}
+
+static int lmdbgo_mdb_cursor_put2(MDB_cursor *cur, void *kdata, size_t kn, void *vdata, size_t vn, unsigned int flags) {
+    MDB_val key, val;
+    LMDBGO_SET_VAL(&key, kn, kdata);
+    LMDBGO_SET_VAL(&val, vn, vdata);
+    return mdb_cursor_put(cur, &key, &val, flags);
+}
+
+static int lmdbgo_mdb_cursor_get2(MDB_cursor *cur, void *kdata, size_t kn, void *vdata, size_t vn, MDB_val *key, MDB_val *val, MDB_cursor_op op) {
+    LMDBGO_SET_VAL(key, kn, kdata);
+    LMDBGO_SET_VAL(val, vn, vdata);
+    return mdb_cursor_get(cur, key, val, op);
+}
+
 */
 import "C"
 
@@ -74,17 +90,30 @@ func (cursor *Cursor) Get(set_key, sval []byte, op uint) (key, val []byte, err e
 	return k.Bytes(), v.Bytes(), nil
 }
 
-func (cursor *Cursor) GetVal(key, val []byte, op uint) (Val, Val, error) {
-	ckey := Wrap(key)
-	cval := Wrap(val)
-	ret := C.mdb_cursor_get(cursor._cursor, (*C.MDB_val)(&ckey), (*C.MDB_val)(&cval), C.MDB_cursor_op(op))
-	return ckey, cval, errno(ret)
+func (cursor *Cursor) GetVal(inkey, inval []byte, op uint) (*Val, *Val, error) {
+	key := new(C.MDB_val)
+	val := new(C.MDB_val)
+	kdata, kn := valBytes(inkey)
+	vdata, vn := valBytes(inval)
+	ret := C.lmdbgo_mdb_cursor_get2(
+		cursor._cursor,
+		kdata, C.size_t(kn),
+		vdata, C.size_t(vn),
+		key, val,
+		C.MDB_cursor_op(op),
+	)
+	return (*Val)(key), (*Val)(val), errno(ret)
 }
 
 func (cursor *Cursor) Put(key, val []byte, flags uint) error {
-	ckey := Wrap(key)
-	cval := Wrap(val)
-	ret := C.mdb_cursor_put(cursor._cursor, (*C.MDB_val)(&ckey), (*C.MDB_val)(&cval), C.uint(flags))
+	kdata, kn := valBytes(key)
+	vdata, vn := valBytes(val)
+	ret := C.lmdbgo_mdb_cursor_put2(
+		cursor._cursor,
+		kdata, C.size_t(kn),
+		vdata, C.size_t(vn),
+		C.uint(flags),
+	)
 	return errno(ret)
 }
 
